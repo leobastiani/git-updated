@@ -17,7 +17,6 @@ import colorama
 import os
 import glob
 import contextlib
-import glob
 
 colorama.init(autoreset=True)
 
