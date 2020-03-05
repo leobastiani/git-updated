@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="git-updated",
-    version="1.0.0",
+    version="1.0.1",
     author="Leonardo Guarnieri de Bastiani",
     author_email="leogbastiani@gmail.com",
     description="Check if your local packages are up to date with origin",
@@ -16,6 +16,8 @@ setuptools.setup(
         'docopt',
         'pathlib',
         'colorama',
+        'tabulate',
+        'tqdm'
     ],
     packages=setuptools.find_packages(),
     entry_points = {

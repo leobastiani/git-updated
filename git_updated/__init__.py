@@ -17,6 +17,8 @@ import colorama
 import os
 import glob
 import contextlib
+from tabulate import tabulate
+from tqdm import tqdm
 
 colorama.init(autoreset=True)
 
@@ -37,43 +39,64 @@ def working_directory(path):
     finally:
         os.chdir(prev_cwd)
 
+# list of commands to run at the end
+commands = []
+
 def command(cmd):
+    debug(f"[{Path.cwd()}]: {cmd}")
     return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8').strip()
 
-def printRepo(path, **kwargs):
-    print('Repository\t%s' % (path.absolute()), **kwargs)
+# reports to show in the end
+reports = []
+def addReport(path, color, message):
+    reports.append([path, color + message + colorama.Style.RESET_ALL])
 
 def check_repository(path):
     with working_directory(path):
-        if not (path / '.git').is_dir():
-            printRepo(path, end='\t')
-            print(colorama.Fore.RED + "ins't a repository")
+        if not Path('.git').is_dir():
+            addReport(path, colorama.Fore.RED, "ins't a repository")
             return 1
         if command('git status -s'):
-            printRepo(path, end='\t')
-            print(colorama.Fore.RED + "has files that aren't commited.")
+            addReport(path, colorama.Fore.RED, "has files that aren't commited.")
+            commands.append(f'pushd {path} && git status && popd')
             return 2
         command('git fetch')
         output = command('git log --branches --not --remotes')
         if output:
-            printRepo(path, end='\t')
-            print(colorama.Fore.RED + "should be pushed")
+            addReport(path, colorama.Fore.RED, "should be pushed")
+            commands.append(f'pushd {path} && git log --branches --not --remotes && popd')
             return 3
-        printRepo(path, end='\t')
-        print(colorama.Fore.GREEN + 'OK!')
+        addReport(path, colorama.Fore.GREEN, "OK!")
         return 0
 
 def main():
+    paths = []
+    ret = 0
+
     for path in arguments['<path>']:
         if '*' in path:
             for p in glob.glob(path):
-                p = Path(p)
-                if p.is_dir():
-                    last_ret = check_repository(p)
-                    if last_ret:
-                        ret = last_ret
+                path = Path(p).absolute()
+                if path.is_dir():
+                    paths.append(path)
         else:
-            return check_repository(Path(path))
+            paths.append(Path(path).resolve())
+
+    pbar = tqdm(paths)
+    for path in pbar:
+        pbar.set_description(str(path))
+        last_ret = check_repository(path)
+        if last_ret:
+            ret = last_ret
+
+    print(tabulate(reports))
+
+    if commands:
+        print('\nRun the following commands:')
+        for c in commands:
+            print(f'\t{c}')
+
+    return ret
 
 if __name__ == '__main__':
     sys.exit(main())
