@@ -28,6 +28,47 @@ def debug(*args):
     if DEBUG:
         print(*args)
 
+class Repo:
+    def __init__(self, path):
+        self.path = path
+        self.result = -1
+        self.command = ''
+        self.report = ''
+
+    def check_repository(self):
+        if not self.path.exists() or not self.path.is_dir():
+            self.report = colorama.Fore.RED + "directory doesn't exist" + colorama.Style.RESET_ALL
+            self.result = 1
+            return self.result
+
+        with working_directory(self.path):
+            if not Path('.git').is_dir():
+                self.report = colorama.Fore.RED + "ins't a repository" + colorama.Style.RESET_ALL
+                self.result = 2
+                return self.result
+
+            if command('git status -s'):
+                self.report = colorama.Fore.RED + "has files that aren't commited." + colorama.Style.RESET_ALL
+                self.command = f'pushd {self.path} && git status && popd'
+                self.result = 3
+                return self.result
+
+            command('git fetch')
+            output = command('git log --branches --not --remotes')
+            if output:
+                self.report = colorama.Fore.RED + "should be pushed" + colorama.Style.RESET_ALL
+                self.command = f'pushd {self.path} && git log --branches --not --remotes && popd'
+                self.result = 4
+                return self.result
+
+            self.report = colorama.Fore.GREEN + "OK!" + colorama.Style.RESET_ALL
+            self.result = 0
+            return self.result
+
+    def __repr__(self):
+        return f'Repo(path: {repr(self.path)}, result: {repr(self.result)}, command: {repr(self.command)}, report: {repr(self.report)})'
+
+
 # https://stackoverflow.com/a/42441759
 @contextlib.contextmanager
 def working_directory(path):
@@ -46,57 +87,33 @@ def command(cmd):
     debug(f"[{Path.cwd()}]: {cmd}")
     return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8').strip()
 
-# reports to show in the end
-reports = []
-def addReport(path, color, message):
-    reports.append([path, color + message + colorama.Style.RESET_ALL])
-
-def check_repository(path):
-    with working_directory(path):
-        if not Path('.git').is_dir():
-            addReport(path, colorama.Fore.RED, "ins't a repository")
-            return 1
-        if command('git status -s'):
-            addReport(path, colorama.Fore.RED, "has files that aren't commited.")
-            commands.append(f'pushd {path} && git status && popd')
-            return 2
-        command('git fetch')
-        output = command('git log --branches --not --remotes')
-        if output:
-            addReport(path, colorama.Fore.RED, "should be pushed")
-            commands.append(f'pushd {path} && git log --branches --not --remotes && popd')
-            return 3
-        addReport(path, colorama.Fore.GREEN, "OK!")
-        return 0
-
 def main():
-    paths = []
-    ret = 0
+    repos = []
 
     for path in arguments['<path>']:
         if '*' in path:
             for p in glob.glob(path):
                 path = Path(p).absolute()
                 if path.is_dir():
-                    paths.append(path)
+                    repos.append(Repo(Path(path)))
         else:
-            paths.append(Path(path).resolve())
+            repos.append(Repo(Path(path)))
 
-    pbar = tqdm(paths)
-    for path in pbar:
-        pbar.set_description(str(path))
-        last_ret = check_repository(path)
-        if last_ret:
-            ret = last_ret
+    pbar = tqdm(repos)
+    for repo in pbar:
+        pbar.set_description(str(repo.path.absolute()))
+        repo.check_repository()
+    print()
 
-    print(tabulate(reports))
+    print(tabulate([[str(repo.path.absolute()), repo.report] for repo in repos]))
 
+    commands = [repo.command for repo in repos if repo.command]
     if commands:
         print('\nRun the following commands:')
         for c in commands:
             print(f'\t{c}')
 
-    return ret
+    return max([repo.result for repo in repos])
 
 if __name__ == '__main__':
     sys.exit(main())
