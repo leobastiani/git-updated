@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="git-updated",
-    version="1.0.2",
+    version="1.0.3",
     author="Leonardo Guarnieri de Bastiani",
     author_email="leogbastiani@gmail.com",
     description="Check if your local packages are up to date with origin",

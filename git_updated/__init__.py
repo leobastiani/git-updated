@@ -49,7 +49,7 @@ class Repo:
 
             if command('git status -s'):
                 self.report = colorama.Fore.RED + "has files that aren't commited." + colorama.Style.RESET_ALL
-                self.command = f'pushd {self.path} && git status && popd'
+                self.command = f'pushd "{self.path.absolute()}" && git status && popd'
                 self.result = 3
                 return self.result
 
@@ -57,7 +57,7 @@ class Repo:
             output = command('git log --branches --not --remotes')
             if output:
                 self.report = colorama.Fore.RED + "should be pushed" + colorama.Style.RESET_ALL
-                self.command = f'pushd {self.path} && git log --branches --not --remotes && popd'
+                self.command = f'pushd "{self.path.absolute()}" && git log --branches --not --remotes && popd'
                 self.result = 4
                 return self.result
 
