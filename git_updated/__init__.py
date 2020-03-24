@@ -30,43 +30,44 @@ def debug(*args):
 
 class Repo:
     def __init__(self, path):
-        self.path = path
+        self.path = path.absolute()
         self.result = -1
         self.command = ''
         self.report = ''
 
-    def check_repository(self):
-        if not self.path.exists() or not self.path.is_dir():
-            self.report = colorama.Fore.RED + "directory doesn't exist" + colorama.Style.RESET_ALL
-            self.result = 1
-            return self.result
+    def setReport(self, color, message):
+        self.report = color + message + colorama.Style.RESET_ALL
 
-        with working_directory(self.path):
-            if not Path('.git').is_dir():
-                self.report = colorama.Fore.RED + "ins't a repository" + colorama.Style.RESET_ALL
-                self.result = 2
-                return self.result
-
-            if command('git status -s'):
-                self.report = colorama.Fore.RED + "has files that aren't commited." + colorama.Style.RESET_ALL
-                self.command = f'pushd "{self.path.absolute()}" && git status && popd'
-                self.result = 3
-                return self.result
-
-            command('git fetch')
-            output = command('git log --branches --not --remotes')
-            if output:
-                self.report = colorama.Fore.RED + "should be pushed" + colorama.Style.RESET_ALL
-                self.command = f'pushd "{self.path.absolute()}" && git log --branches --not --remotes && popd'
-                self.result = 4
-                return self.result
-
-            self.report = colorama.Fore.GREEN + "OK!" + colorama.Style.RESET_ALL
-            self.result = 0
-            return self.result
+    def setCommand(self, command):
+        self.command = f'pushd "{self.path.absolute()}" && {command} && popd'
 
     def __repr__(self):
         return f'Repo(path: {repr(self.path)}, result: {repr(self.result)}, command: {repr(self.command)}, report: {repr(self.report)})'
+
+    def check_repository(self):
+        def _check_repository():
+            if not self.path.exists() or not self.path.is_dir():
+                self.setReport(colorama.Fore.RED, "directory doesn't exist")
+                return 0
+            with working_directory(self.path):
+                if not Path('.git').is_dir():
+                    self.setReport(colorama.Fore.RED, "ins't a repository")
+                    return 1
+                if command('git status -s'):
+                    self.setReport(colorama.Fore.RED, "has files that aren't commited.")
+                    self.setCommand('git status')
+                    return 2
+                command('git fetch')
+                output = command('git log --branches --not --remotes')
+                if output:
+                    self.setReport(colorama.Fore.RED, "should be pushed")
+                    self.setCommand('git log --branches --not --remotes')
+                    return 3
+            self.setReport(colorama.Fore.GREEN, "OK!")
+            return 0
+
+        self.result = _check_repository()
+        return self.result
 
 
 # https://stackoverflow.com/a/42441759
