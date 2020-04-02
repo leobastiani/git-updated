@@ -50,7 +50,9 @@ class Repo:
                 self.setReport(colorama.Fore.RED, "directory doesn't exist")
                 return 0
             with working_directory(self.path):
-                if not Path('.git').is_dir():
+                dotDirString = command('git rev-parse --show-toplevel')
+                dotDirPath = last_exit_code == 0 and Path(dotDirString)
+                if dotDirPath != self.path:
                     self.setReport(colorama.Fore.RED, "ins't a repository")
                     return 1
                 if command('git status -s'):
@@ -83,10 +85,12 @@ def working_directory(path):
 
 # list of commands to run at the end
 commands = []
-
+last_exit_code = 0
 def command(cmd):
     debug(f"[{Path.cwd()}]: {cmd}")
-    return subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8').strip()
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    last_exit_code = res.returncode
+    return res.stdout.decode('utf-8').strip()
 
 def main():
     repos = []
