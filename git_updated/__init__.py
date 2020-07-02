@@ -3,10 +3,12 @@
 
 """Usage:
   git-updated <path>... [options]
+  git-updated --full [options]
 
 Options:
   -h --help   Show this screen.
   -d --debug  Show version.
+  -f --full  Scan the entire PC.
 """
 from __future__ import print_function, division, absolute_import
 from docopt import docopt
@@ -15,18 +17,49 @@ from pathlib import Path
 import subprocess
 import colorama
 import os
+import re
 import glob
 import contextlib
 from tabulate import tabulate
 from tqdm import tqdm
+import tempfile
 
 colorama.init(autoreset=True)
 
 arguments = docopt(__doc__)
 DEBUG = arguments['--debug'] or sys.flags.debug
+IGNORE = [
+    Path(tempfile.gettempdir()),
+    Path('C:\\$GetCurrent'),
+    Path('C:\\$Recycle.Bin'),
+    Path('C:\\$Windows.~WS'),
+    Path('C:\\$WinREAgent'),
+    Path('C:\\System Volume Information'),
+    Path('C:\\Windows'),
+    Path('C:\\Windows10Upgrade'),
+]
+
 def debug(*args):
     if DEBUG:
         print(*args)
+
+def is_subdir(p1, p2):
+    """check if p1 is p2 or its subdirectory
+    :param str p1: subdirectory candidate
+    :param str p2: parent directory
+    :returns True if p1,p2 are directories and p1 is p2 or its subdirectory"""
+    if os.path.isdir(p1) and os.path.isdir(p2):
+        p1, p2 = os.path.realpath(p1), os.path.realpath(p2)
+        return p1 == p2 or p1.startswith(p2+os.sep)
+    else:
+        return False
+
+def isIgnoring(path):
+    for ignoringPath in IGNORE:
+        if path == ignoringPath: return True
+        if is_subdir(path, ignoringPath): return True
+        if re.search(r'[\\/]node_modules[\\/]', str(path)): return True
+    return False
 
 class Repo:
     def __init__(self, path):
@@ -34,6 +67,7 @@ class Repo:
         self.result = -1
         self.command = ''
         self.report = ''
+        debug(self)
 
     def setReport(self, color, message):
         self.report = color + message + colorama.Style.RESET_ALL
@@ -97,9 +131,9 @@ def main():
 
     for path in arguments['<path>']:
         if '*' in path:
-            for p in glob.glob(path):
+            for p in glob.iglob(path, recursive=True):
                 path = Path(p).absolute()
-                if path.is_dir():
+                if path.is_dir() and not isIgnoring(path):
                     repos.append(Repo(Path(path)))
         else:
             repos.append(Repo(Path(path)))
@@ -121,4 +155,7 @@ def main():
     return max([repo.result for repo in repos])
 
 if __name__ == '__main__':
+    if arguments['--full']:
+        print('Searching for repos...')
+        arguments['<path>'] = [str(Path(x).parents[0]) for x in glob.iglob(str(Path('/**/.git').absolute()), recursive=True)]
     sys.exit(main())
