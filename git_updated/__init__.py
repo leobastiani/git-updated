@@ -2,13 +2,13 @@
 #encoding=utf-8
 
 """Usage:
-  git-updated <path>... [options]
-  git-updated --full [options]
+    git-updated <path>... [options]
+    git-updated --full [options]
 
 Options:
-  -h --help   Show this screen.
-  -d --debug  Show version.
-  -f --full  Scan the entire PC.
+    -h --help   Show this screen.
+    -d --debug  Show version.
+    -f --full  Scan the entire PC.
 """
 from __future__ import print_function, division, absolute_import
 from docopt import docopt
@@ -127,6 +127,10 @@ def command(cmd):
     return res.stdout.decode('utf-8').strip()
 
 def main():
+    if arguments['--full']:
+        print('Searching for repos...')
+        arguments['<path>'] = [str(Path(x).parents[0]) for x in glob.iglob(str(Path('/**/.git').absolute()), recursive=True)]
+
     repos = []
 
     for path in arguments['<path>']:
@@ -155,7 +159,4 @@ def main():
     return max([repo.result for repo in repos])
 
 if __name__ == '__main__':
-    if arguments['--full']:
-        print('Searching for repos...')
-        arguments['<path>'] = [str(Path(x).parents[0]) for x in glob.iglob(str(Path('/**/.git').absolute()), recursive=True)]
     sys.exit(main())
